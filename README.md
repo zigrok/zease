@@ -108,5 +108,13 @@ zig build test
 
 ## 🤝 Contributing
 
-Contributions welcome! Please ensure all tests pass before submitting PRs.
+Contributions welcome! Everything in zease must be **ZEASY** - we prioritize ease of use over raw performance.
+
+📖 Read the [Contributing Guide](CONTRIBUTING.md) for details on our philosophy, code style, and submission process.
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
 

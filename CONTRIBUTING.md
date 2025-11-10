@@ -16,7 +16,7 @@ Zease prioritizes **ease of use over raw maximum performance**. The goal is to p
 - **Safe by default** - Handle the common gotchas for users
 - **Performance is important, but not at the cost of usability**
 
-When contributing, ask yourself: "Is this ZEASY to use?" If it requires complex setup, obscure patterns, or lots of manual memory management where it could be automated, it might not be a good fit. 
+When contributing, ask yourself: "Is this ZEASY to use?" If it requires complex setup, obscure patterns, or lots of manual memory management where it could be automated, it might not be a good fit.
 
 ## Getting Started
 
