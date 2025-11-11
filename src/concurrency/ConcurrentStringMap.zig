@@ -36,24 +36,26 @@ pub fn ConcurrentStringMap(comptime V: type) type {
             self.* = undefined;
         }
 
-        /// Insert or overwrite.
+        /// Insert or overwrite with a callback that creates the value.
         /// Makes a copy of the key string.
-        pub fn put(self: *Self, key: []const u8, value: V) Allocator.Error!void {
+        /// The callback receives the map's owned copy of the key.
+        pub fn put(self: *Self, key: []const u8, createValue: fn ([]const u8) V) Allocator.Error!void {
             self.mutex.lock();
             defer self.mutex.unlock();
 
-            // Check if key already exists to avoid leaking memory
             const gop = try self.map.getOrPut(self.allocator, key);
             if (!gop.found_existing) {
                 // New key - make a copy
                 gop.key_ptr.* = try self.allocator.dupe(u8, key);
             }
-            gop.value_ptr.* = value;
+            // Always create value using the copied key
+            gop.value_ptr.* = createValue(gop.key_ptr.*);
         }
 
         /// Insert and return previous value if any.
         /// Makes a copy of the key string if it's new.
-        pub fn fetchPut(self: *Self, key: []const u8, value: V) Allocator.Error!?V {
+        /// The callback receives the map's owned copy of the key.
+        pub fn fetchPut(self: *Self, key: []const u8, createValue: fn ([]const u8) V) Allocator.Error!?V {
             self.mutex.lock();
             defer self.mutex.unlock();
 
@@ -64,7 +66,8 @@ pub fn ConcurrentStringMap(comptime V: type) type {
                 // New key - make a copy
                 gop.key_ptr.* = try self.allocator.dupe(u8, key);
             }
-            gop.value_ptr.* = value;
+            // Always create value using the copied key
+            gop.value_ptr.* = createValue(gop.key_ptr.*);
 
             return prev;
         }
@@ -158,8 +161,19 @@ test "ConcurrentStringMap - basic put and get" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    try cmap.put("one", 1);
-    try cmap.put("two", 2);
+    const makeOne = struct {
+        fn call(_: []const u8) i32 {
+            return 1;
+        }
+    }.call;
+    const makeTwo = struct {
+        fn call(_: []const u8) i32 {
+            return 2;
+        }
+    }.call;
+
+    try cmap.put("one", makeOne);
+    try cmap.put("two", makeTwo);
 
     try std.testing.expectEqual(@as(?i32, 1), cmap.get("one"));
     try std.testing.expectEqual(@as(?i32, 2), cmap.get("two"));
@@ -172,7 +186,13 @@ test "ConcurrentStringMap - contains" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    try cmap.put("exists", 42);
+    const make42 = struct {
+        fn call(_: []const u8) i32 {
+            return 42;
+        }
+    }.call;
+
+    try cmap.put("exists", make42);
 
     try std.testing.expect(cmap.contains("exists"));
     try std.testing.expect(!cmap.contains("missing"));
@@ -184,13 +204,53 @@ test "ConcurrentStringMap - fetchPut" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    const prev1 = try cmap.fetchPut("key", 10);
+    const make10 = struct {
+        fn call(_: []const u8) i32 {
+            return 10;
+        }
+    }.call;
+    const make20 = struct {
+        fn call(_: []const u8) i32 {
+            return 20;
+        }
+    }.call;
+
+    const prev1 = try cmap.fetchPut("key", make10);
     try std.testing.expectEqual(@as(?i32, null), prev1);
 
-    const prev2 = try cmap.fetchPut("key", 20);
+    const prev2 = try cmap.fetchPut("key", make20);
     try std.testing.expectEqual(@as(?i32, 10), prev2);
 
     try std.testing.expectEqual(@as(?i32, 20), cmap.get("key"));
+}
+
+test "ConcurrentStringMap - callback receives map's key copy" {
+    var dbg = std.heap.DebugAllocator(.{}){};
+    const alloc = dbg.allocator();
+    
+    const ValueWithKeyPtr = struct {
+        key_ptr: [*:0]const u8,
+    };
+    
+    var cmap = ConcurrentStringMap(ValueWithKeyPtr).init(alloc);
+    defer cmap.deinit();
+
+    const createValue = struct {
+        fn call(key: []const u8) ValueWithKeyPtr {
+            // Cast the key to a sentinel-terminated pointer
+            // This demonstrates that the value can safely reference the key
+            return .{ .key_ptr = @ptrCast(key.ptr) };
+        }
+    }.call;
+
+    try cmap.put("test_key", createValue);
+    
+    const val = cmap.get("test_key");
+    try std.testing.expect(val != null);
+    
+    // Verify the pointer points to valid data
+    const key_slice = std.mem.span(val.?.key_ptr);
+    try std.testing.expectEqualStrings("test_key", key_slice);
 }
 
 test "ConcurrentStringMap - remove and fetchRemove" {
@@ -199,8 +259,19 @@ test "ConcurrentStringMap - remove and fetchRemove" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    try cmap.put("key1", 100);
-    try cmap.put("key2", 200);
+    const make100 = struct {
+        fn call(_: []const u8) i32 {
+            return 100;
+        }
+    }.call;
+    const make200 = struct {
+        fn call(_: []const u8) i32 {
+            return 200;
+        }
+    }.call;
+
+    try cmap.put("key1", make100);
+    try cmap.put("key2", make200);
 
     try std.testing.expect(cmap.remove("key1"));
     try std.testing.expect(!cmap.contains("key1"));
@@ -217,7 +288,13 @@ test "ConcurrentStringMap - withValue" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    try cmap.put("counter", 0);
+    const makeZero = struct {
+        fn call(_: []const u8) i32 {
+            return 0;
+        }
+    }.call;
+
+    try cmap.put("counter", makeZero);
 
     const increment = struct {
         fn call(val: *i32) void {
@@ -237,9 +314,25 @@ test "ConcurrentStringMap - forEach" {
     var cmap = ConcurrentStringMap(i32).init(alloc);
     defer cmap.deinit();
 
-    try cmap.put("a", 1);
-    try cmap.put("b", 2);
-    try cmap.put("c", 3);
+    const make1 = struct {
+        fn call(_: []const u8) i32 {
+            return 1;
+        }
+    }.call;
+    const make2 = struct {
+        fn call(_: []const u8) i32 {
+            return 2;
+        }
+    }.call;
+    const make3 = struct {
+        fn call(_: []const u8) i32 {
+            return 3;
+        }
+    }.call;
+
+    try cmap.put("a", make1);
+    try cmap.put("b", make2);
+    try cmap.put("c", make3);
 
     const callback = struct {
         fn call(_: []const u8, val: *i32) void {
@@ -265,6 +358,22 @@ test "ConcurrentStringMap - concurrent put operations" {
 
         fn worker(ctx: @This()) void {
             const id = ctx.thread_id;
+            // Parse key to extract thread_id and index to compute value
+            const makeValue = struct {
+                fn call(key: []const u8) i32 {
+                    // Key format: "thread{d}_key{d}"
+                    // Extract thread_id and i from key
+                    var it = std.mem.splitScalar(u8, key, '_');
+                    const thread_part = it.next().?; // "thread{d}"
+                    const key_part = it.next().?; // "key{d}"
+                    
+                    const tid = std.fmt.parseInt(usize, thread_part[6..], 10) catch unreachable;
+                    const idx = std.fmt.parseInt(usize, key_part[3..], 10) catch unreachable;
+                    
+                    return @intCast(tid * 1000 + idx);
+                }
+            }.call;
+            
             for (0..100) |i| {
                 const key = std.fmt.allocPrint(
                     ctx.allocator,
@@ -273,7 +382,7 @@ test "ConcurrentStringMap - concurrent put operations" {
                 ) catch unreachable;
                 defer ctx.allocator.free(key);
 
-                ctx.map.put(key, @intCast(id * 1000 + i)) catch unreachable;
+                ctx.map.put(key, makeValue) catch unreachable;
             }
         }
     };
@@ -311,10 +420,18 @@ test "ConcurrentStringMap - concurrent get operations" {
     defer cmap.deinit();
 
     // Populate map
+    const makeValueFromKey = struct {
+        var value: i32 = 0;
+        fn call(_: []const u8) i32 {
+            return value;
+        }
+    };
+    
     for (0..100) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
-        try cmap.put(key, @intCast(i));
+        makeValueFromKey.value = @intCast(i);
+        try cmap.put(key, makeValueFromKey.call);
     }
 
     const ThreadContext = struct {
@@ -371,12 +488,28 @@ test "ConcurrentStringMap - concurrent mixed operations" {
                 defer ctx.allocator.free(key);
 
                 // Mix of operations
-                ctx.map.put(key, @intCast(ctx.thread_id)) catch unreachable;
+                const makeTid = struct {
+                    var tid: usize = undefined;
+                    fn call(_: []const u8) i32 {
+                        return @intCast(tid);
+                    }
+                };
+                const makeTidPlus100 = struct {
+                    var tid: usize = undefined;
+                    fn call(_: []const u8) i32 {
+                        return @intCast(tid + 100);
+                    }
+                };
+                
+                makeTid.tid = ctx.thread_id;
+                makeTidPlus100.tid = ctx.thread_id;
+                
+                ctx.map.put(key, makeTid.call) catch unreachable;
                 _ = ctx.map.contains(key);
                 _ = ctx.map.get(key);
 
                 if (i % 2 == 0) {
-                    _ = ctx.map.fetchPut(key, @intCast(ctx.thread_id + 100)) catch unreachable;
+                    _ = ctx.map.fetchPut(key, makeTidPlus100.call) catch unreachable;
                 }
             }
         }
@@ -413,10 +546,16 @@ test "ConcurrentStringMap - concurrent withValue operations" {
     defer cmap.deinit();
 
     // Create counters
+    const makeZero = struct {
+        fn call(_: []const u8) i32 {
+            return 0;
+        }
+    }.call;
+    
     for (0..10) |i| {
         const key = try std.fmt.allocPrint(alloc, "counter{d}", .{i});
         defer alloc.free(key);
-        try cmap.put(key, 0);
+        try cmap.put(key, makeZero);
     }
 
     const ThreadContext = struct {
@@ -475,10 +614,18 @@ test "ConcurrentStringMap - concurrent remove operations" {
     defer cmap.deinit();
 
     // Populate with many entries
+    const makeValueFromIdx = struct {
+        var idx: usize = 0;
+        fn call(_: []const u8) i32 {
+            return @intCast(idx);
+        }
+    };
+    
     for (0..100) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
-        try cmap.put(key, @intCast(i));
+        makeValueFromIdx.idx = i;
+        try cmap.put(key, makeValueFromIdx.call);
     }
 
     const ThreadContext = struct {
@@ -533,10 +680,18 @@ test "ConcurrentStringMap - concurrent fetchRemove operations" {
     defer cmap.deinit();
 
     // Populate with entries
+    const makeValueFromIdx = struct {
+        var idx: usize = 0;
+        fn call(_: []const u8) i32 {
+            return @intCast(idx * 10);
+        }
+    };
+    
     for (0..50) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
-        try cmap.put(key, @intCast(i * 10));
+        makeValueFromIdx.idx = i;
+        try cmap.put(key, makeValueFromIdx.call);
     }
 
     const ThreadContext = struct {
@@ -594,10 +749,18 @@ test "ConcurrentStringMap - concurrent forEach operations" {
     defer cmap.deinit();
 
     // Populate map
+    const makeValueFromIdx = struct {
+        var idx: usize = 0;
+        fn call(_: []const u8) i32 {
+            return @intCast(idx);
+        }
+    };
+    
     for (0..50) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
-        try cmap.put(key, @intCast(i));
+        makeValueFromIdx.idx = i;
+        try cmap.put(key, makeValueFromIdx.call);
     }
 
     const ThreadContext = struct {
