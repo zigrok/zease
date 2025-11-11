@@ -87,8 +87,10 @@ comptime {
 
 ### Build Utils
 
+**Note:** `build.utils.zig` must be copied to your project to use in `build.zig` files. See [docs](docs/build/build.utils.md) for details.
+
 ```zig
-const build_utils = @import("zease_build_utils");
+const build_utils = @import("build.utils.zig");
 
 const summary = build_utils.checkDependencies(b, @import("build_options"), target, &deps);
 if (!summary.allSatisfied()) {

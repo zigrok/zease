@@ -4,20 +4,19 @@
 
 Build system utilities for managing dependencies and target validation in Zig projects.
 
-## Usage
+## ⚠️ Important: Usage in build.zig
 
-Access build utilities in your `build.zig`:
+**Due to Zig's build system limitations, `build.utils.zig` cannot be imported from dependencies in `build.zig` files.**
+
+Zig's `@import()` requires compile-time string literals and cannot resolve dependency modules during build script compilation. This is a fundamental limitation - `@import()` paths must be known before any dependencies are fetched.
+
+**You must copy `build.utils.zig` directly into your project to use it in `build.zig`:**
 
 ```zig
-const zease_dep = b.dependency("zease", .{
-    .target = target,
-    .optimize = optimize,
-});
-
-exe.root_module.addAnonymousImport("zease_build_utils", .{
-    .root_source_file = zease_dep.path("src/build/build.utils.zig"),
-});
+const build_utils = @import("build.utils.zig");
 ```
+
+The zease dependency system works for your application code, but build scripts require file-based imports.
 
 ## Dependency Management
 
@@ -26,7 +25,7 @@ exe.root_module.addAnonymousImport("zease_build_utils", .{
 Check and validate project dependencies with detailed reporting.
 
 ```zig
-const build_utils = @import("zease_build_utils");
+const build_utils = @import("build.utils.zig");
 
 const deps = [_]build_utils.DependencySpec{
     .{ .name = "raylib" },
