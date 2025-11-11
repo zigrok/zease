@@ -127,6 +127,14 @@ pub fn ConcurrentStringMap(comptime V: type) type {
             return false;
         }
 
+        /// Get the number of entries in the map.
+        pub fn count(self: *Self) usize {
+            self.mutex.lock();
+            defer self.mutex.unlock();
+
+            return self.map.count();
+        }
+
         /// Locked iteration callback.
         /// Any mutation must happen via the provided pointer while still under lock.
         pub fn forEach(
