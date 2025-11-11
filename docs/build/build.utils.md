@@ -4,6 +4,20 @@
 
 Build system utilities for managing dependencies and target validation in Zig projects.
 
+## 🎯 Primary Purpose
+
+**Conditional lazy-fetching and compilation of platform-specific dependencies.**
+
+The core value of `build.utils.zig` is enabling dependencies that are only fetched and compiled for specific platforms by encoding the target OS and architecture directly in the dependency key name (e.g., `dawn_windows_x86_64`, `native_lib_linux_aarch64`).
+
+This allows you to:
+- **Avoid fetching unnecessary dependencies** - Don't download Windows binaries on Linux builds
+- **Skip compilation for wrong platforms** - Dependencies marked as skippable won't cause build failures on unsupported platforms
+- **Ship platform-specific binaries** - Include pre-compiled libraries for each target in separate packages
+- **Reduce build times** - Only process dependencies needed for the current target
+
+The system leverages Zig's `lazyDependency()` which only fetches dependencies when they're actually used, combined with platform-aware dependency naming to achieve true conditional dependency resolution.
+
 ## ⚠️ Important: Usage in build.zig
 
 **Due to Zig's build system limitations, `build.utils.zig` cannot be imported from dependencies in `build.zig` files.**
