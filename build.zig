@@ -10,6 +10,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    _ = b.addModule("zease-build", .{
+        .root_source_file = b.path("src/zease-build.zig"),
+    });
+
     const lib = b.addLibrary(.{
         .name = "zease",
         .root_module = root_module,
