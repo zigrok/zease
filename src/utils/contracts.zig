@@ -1,5 +1,20 @@
 const std = @import("std");
-const print = @import("../utils/print.zig");
+
+/// Appends an item to a compile-time string list with customizable formatting.
+/// Used internally for building contract violation messages.
+inline fn appendBulletPoint(
+    list: *[]const u8,
+    count: *usize,
+    item: []const u8,
+    comptime bullet: []const u8,
+    comptime separator: []const u8,
+) void {
+    list.* = if (count.* == 0)
+        std.fmt.comptimePrint("{s}{s}", .{ bullet, item })
+    else
+        std.fmt.comptimePrint("{s}{s}{s}{s}", .{ list.*, separator, bullet, item });
+    count.* += 1;
+}
 
 /// Checks if a target type implements the interface defined by a contract struct.
 /// The contract must be a struct type describing required functions or data fields
@@ -30,7 +45,7 @@ pub fn implementsContract(comptime Contract: type, comptime Target: type) void {
 
         if (field_tag == .@"fn") {
             if (!@hasDecl(Target, field.name)) {
-                print.appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
+                appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
                     "missing function '{s}'",
                     .{field.name},
                 ), "  • ", "\n");
@@ -41,7 +56,7 @@ pub fn implementsContract(comptime Contract: type, comptime Target: type) void {
             const actual_type = @TypeOf(@field(Target, field.name));
 
             if (expected_type != actual_type) {
-                print.appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
+                appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
                     "function '{s}' has type {s}; expected {s}",
                     .{ field.name, @typeName(actual_type), @typeName(expected_type) },
                 ), "  • ", "\n");
@@ -53,7 +68,7 @@ pub fn implementsContract(comptime Contract: type, comptime Target: type) void {
                     if (std.mem.eql(u8, target_field.name, field.name)) {
                         found = true;
                         if (target_field.type != field.type) {
-                            print.appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
+                            appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
                                 "field '{s}' has type {s}; expected {s}",
                                 .{ field.name, @typeName(target_field.type), @typeName(field.type) },
                             ), "  • ", "\n");
@@ -63,13 +78,13 @@ pub fn implementsContract(comptime Contract: type, comptime Target: type) void {
                 }
 
                 if (!found) {
-                    print.appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
+                    appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
                         "missing data field '{s}' (type {s})",
                         .{ field.name, @typeName(field.type) },
                     ), "  • ", "\n");
                 }
             } else {
-                print.appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
+                appendBulletPoint(&issues, &issue_count, std.fmt.comptimePrint(
                     "requires data field '{s}' (type {s}) but target is not a struct",
                     .{ field.name, @typeName(field.type) },
                 ), "  • ", "\n");

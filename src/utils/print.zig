@@ -1,38 +1,6 @@
 const std = @import("std");
 
 // =============================================================================
-// Compile-Time String Building
-// =============================================================================
-
-/// Appends an item to a compile-time string list with customizable formatting.
-///
-/// Builds a formatted list by concatenating items with a separator and prefix.
-/// The first item is prefixed with `bullet`, subsequent items are prefixed
-/// with `separator` followed by `bullet`.
-///
-/// Example:
-/// ```zig
-/// var list: []const u8 = "";
-/// var count: usize = 0;
-/// appendBulletPoint(&list, &count, "first", "• ", "\n");
-/// appendBulletPoint(&list, &count, "second", "• ", "\n");
-/// // Result: "• first\n• second"
-/// ```
-pub inline fn appendBulletPoint(
-    list: *[]const u8,
-    count: *usize,
-    item: []const u8,
-    comptime bullet: []const u8,
-    comptime separator: []const u8,
-) void {
-    list.* = if (count.* == 0)
-        std.fmt.comptimePrint("{s}{s}", .{ bullet, item })
-    else
-        std.fmt.comptimePrint("{s}{s}{s}{s}", .{ list.*, separator, bullet, item });
-    count.* += 1;
-}
-
-// =============================================================================
 // .zon Serialization (Public API)
 // =============================================================================
 

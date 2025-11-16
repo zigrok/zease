@@ -46,57 +46,14 @@ Build system utilities for dependency management and target validation.
 |---------|-------------|------|
 | **build.utils** | Dependency checking, target validation, platform-specific helpers | [📖 View](docs/build/build.utils.md) |
 
-### 🔧 Types
+### 🔧 Utils
 
-Compile-time type validation and utilities with zero runtime cost.
+Utilities for common tasks including compile-time validation and formatting.
 
 | Utility | Description | Docs |
 |---------|-------------|------|
-| **type_utils** | Contract verification, interface validation at compile time | [📖 View](docs/types/type_utils.md) |
-
----
-
-## 🎯 Quick Examples
-
-### ConcurrentStringMap
-
-```zig
-const zease = @import("zease");
-const ConcurrentStringMap = zease.concurrency.ConcurrentStringMap;
-
-var map = ConcurrentStringMap(i32).init(allocator);
-defer map.deinit();
-
-try map.put("key", 42);
-const value = map.get("key"); // ?i32
-```
-
-### Type Utils
-
-```zig
-const implementsContract = zease.types.type_utils.implementsContract;
-
-const WriterContract = struct {
-    write: *const fn (self: *anyopaque, bytes: []const u8) anyerror!usize,
-};
-
-comptime {
-    implementsContract(WriterContract, MyWriter);
-}
-```
-
-### Build Utils
-
-**Note:** `build.utils.zig` must be copied to your project to use in `build.zig` files. See [docs](docs/build/build.utils.md) for details.
-
-```zig
-const build_utils = @import("build.utils.zig");
-
-const summary = build_utils.checkDependencies(b, @import("build_options"), target, &deps);
-if (!summary.allSatisfied()) {
-    std.process.exit(1);
-}
-```
+| **contracts** | Contract verification, interface validation at compile time | [📖 View](docs/utils/contracts.md) |
+| **print** | .zon serialization and compile-time string formatting utilities | [📖 View](docs/utils/print.md) |
 
 ---
 
