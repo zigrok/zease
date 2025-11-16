@@ -52,7 +52,7 @@ Utilities for common tasks including compile-time validation and formatting.
 
 | Utility | Description | Docs |
 |---------|-------------|------|
-| **contracts** | Contract verification, interface validation at compile time | [📖 View](docs/utils/contracts.md) |
+| **contracts** | Contract verification and validation at compile time | [📖 View](docs/utils/contracts.md) |
 | **print** | .zon serialization and compile-time string formatting utilities | [📖 View](docs/utils/print.md) |
 
 ---
