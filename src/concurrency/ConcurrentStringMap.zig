@@ -227,11 +227,11 @@ test "ConcurrentStringMap - fetchPut" {
 test "ConcurrentStringMap - callback receives map's key copy" {
     var dbg = std.heap.DebugAllocator(.{}){};
     const alloc = dbg.allocator();
-    
+
     const ValueWithKeyPtr = struct {
         key_ptr: [*:0]const u8,
     };
-    
+
     var cmap = ConcurrentStringMap(ValueWithKeyPtr).init(alloc);
     defer cmap.deinit();
 
@@ -244,10 +244,10 @@ test "ConcurrentStringMap - callback receives map's key copy" {
     }.call;
 
     try cmap.put("test_key", createValue);
-    
+
     const val = cmap.get("test_key");
     try std.testing.expect(val != null);
-    
+
     // Verify the pointer points to valid data
     const key_slice = std.mem.span(val.?.key_ptr);
     try std.testing.expectEqualStrings("test_key", key_slice);
@@ -366,14 +366,14 @@ test "ConcurrentStringMap - concurrent put operations" {
                     var it = std.mem.splitScalar(u8, key, '_');
                     const thread_part = it.next().?; // "thread{d}"
                     const key_part = it.next().?; // "key{d}"
-                    
+
                     const tid = std.fmt.parseInt(usize, thread_part[6..], 10) catch unreachable;
                     const idx = std.fmt.parseInt(usize, key_part[3..], 10) catch unreachable;
-                    
+
                     return @intCast(tid * 1000 + idx);
                 }
             }.call;
-            
+
             for (0..100) |i| {
                 const key = std.fmt.allocPrint(
                     ctx.allocator,
@@ -426,7 +426,7 @@ test "ConcurrentStringMap - concurrent get operations" {
             return value;
         }
     };
-    
+
     for (0..100) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
@@ -500,10 +500,10 @@ test "ConcurrentStringMap - concurrent mixed operations" {
                         return @intCast(tid + 100);
                     }
                 };
-                
+
                 makeTid.tid = ctx.thread_id;
                 makeTidPlus100.tid = ctx.thread_id;
-                
+
                 ctx.map.put(key, makeTid.call) catch unreachable;
                 _ = ctx.map.contains(key);
                 _ = ctx.map.get(key);
@@ -551,7 +551,7 @@ test "ConcurrentStringMap - concurrent withValue operations" {
             return 0;
         }
     }.call;
-    
+
     for (0..10) |i| {
         const key = try std.fmt.allocPrint(alloc, "counter{d}", .{i});
         defer alloc.free(key);
@@ -620,7 +620,7 @@ test "ConcurrentStringMap - concurrent remove operations" {
             return @intCast(idx);
         }
     };
-    
+
     for (0..100) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
@@ -686,7 +686,7 @@ test "ConcurrentStringMap - concurrent fetchRemove operations" {
             return @intCast(idx * 10);
         }
     };
-    
+
     for (0..50) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
@@ -755,7 +755,7 @@ test "ConcurrentStringMap - concurrent forEach operations" {
             return @intCast(idx);
         }
     };
-    
+
     for (0..50) |i| {
         const key = try std.fmt.allocPrint(alloc, "key{d}", .{i});
         defer alloc.free(key);
